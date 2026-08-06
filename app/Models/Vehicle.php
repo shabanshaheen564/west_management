@@ -30,10 +30,10 @@ class Vehicle extends Model
         'capacity'         => 'float',
     ];
 
-  public function driver()
-{
-    return $this->hasOne(Driver::class, 'employee_id', 'id');
-}
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
 
     public function routes()
     {

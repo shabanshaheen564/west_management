@@ -11,7 +11,9 @@ return new class extends Migration {
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('locale', 5)->default('en')->after('email');
+            if (!Schema::hasColumn('users', 'locale')) {
+                $table->string('locale', 5)->default('en')->after('email');
+            }
         });
     }
 

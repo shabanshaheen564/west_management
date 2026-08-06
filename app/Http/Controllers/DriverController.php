@@ -1,10 +1,11 @@
 <?php
 
 namespace App\Http\Controllers;
-use Maatwebsite\Excel\Facades\Excel;
 
 use App\Models\Driver;
+use App\Imports\DriversImport;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DriverController extends Controller
 {
@@ -13,20 +14,21 @@ class DriverController extends Controller
         $query = Driver::query();
 
         // Search
-        if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                    ->orWhere('employee_id', 'like', "%{$request->search}%")
-                    ->orWhere('phone', 'like', "%{$request->search}%");
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
         // Filter status
-        if ($request->status) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        $drivers = $query->latest()->paginate(10);
+        $drivers = $query->latest()->paginate(10)->withQueryString();
 
         $stats = [
             'total' => Driver::count(),
@@ -37,8 +39,93 @@ class DriverController extends Controller
 
         return view('waste_management.drivers', compact('drivers', 'stats'));
     }
+
+    public function create()
+    {
+        return view('waste_management.drivers');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'employee_id'     => 'required|string|unique:drivers,employee_id',
+            'name'            => 'required|string|max:255',
+            'name_ar'         => 'nullable|string|max:255',
+            'phone'           => 'required|string',
+            'email'           => 'nullable|email',
+            'national_id'     => 'nullable|string|unique:drivers,national_id',
+            'license_number'  => 'required|string|unique:drivers,license_number',
+            'license_class'   => 'required|in:A,B,C,D',
+            'license_expiry'  => 'required|date',
+            'hire_date'       => 'required|date',
+            'status'          => 'required|in:active,inactive,on_leave,suspended',
+            'address'         => 'nullable|string',
+            'notes'           => 'nullable|string',
+        ]);
+
+        Driver::create($validated);
+
+        return redirect()->route('drivers.index')
+            ->with('success', __('Driver created successfully'));
+    }
+
+    public function show(Driver $driver)
+    {
+        $driver->load('routes', 'vehicle');
+        return response()->json(['driver' => $driver]);
+    }
+
+    public function edit(Driver $driver)
+    {
+        return view('waste_management.drivers', compact('driver'));
+    }
+
+    public function update(Request $request, Driver $driver)
+    {
+        $validated = $request->validate([
+            'employee_id'     => 'required|string|unique:drivers,employee_id,' . $driver->id,
+            'name'            => 'required|string|max:255',
+            'name_ar'         => 'nullable|string|max:255',
+            'phone'           => 'required|string',
+            'email'           => 'nullable|email',
+            'national_id'     => 'nullable|string|unique:drivers,national_id,' . $driver->id,
+            'license_number'  => 'required|string|unique:drivers,license_number,' . $driver->id,
+            'license_class'   => 'required|in:A,B,C,D',
+            'license_expiry'  => 'required|date',
+            'hire_date'       => 'required|date',
+            'status'          => 'required|in:active,inactive,on_leave,suspended',
+            'address'         => 'nullable|string',
+            'notes'           => 'nullable|string',
+        ]);
+
+        $driver->update($validated);
+
+        return redirect()->route('drivers.index')
+            ->with('success', __('Driver updated successfully'));
+    }
+
+    public function destroy(Driver $driver)
+    {
+        $driver->delete();
+
+        return redirect()->route('drivers.index')
+            ->with('success', __('Driver deleted successfully'));
+    }
+
     public function export()
     {
         return Excel::download(new \App\Exports\DriversExport, 'drivers-' . date('Y-m-d') . '.xlsx');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        Excel::import(new DriversImport, $request->file('file'));
+
+        return redirect()->route('drivers.index')
+            ->with('success', __('Drivers imported successfully'));
     }
 }
