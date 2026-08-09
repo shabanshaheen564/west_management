@@ -8,9 +8,6 @@ use Illuminate\Http\Request;
 
 class VehicleTrackingController extends Controller
 {
-    /**
-     * Current position of every trackable vehicle (for live tracking dashboards).
-     */
     public function index()
     {
         $vehicles = Vehicle::whereNotNull('current_lat')
@@ -33,43 +30,56 @@ class VehicleTrackingController extends Controller
         ]);
     }
 
-    /**
-     * Push a new GPS point from a tracking device / mobile app.
-     * We don't have a dedicated location-history table, so we keep a
-     * capped rolling log inside the `gps_data` json column.
-     */
     public function updateLocation(Request $request, Vehicle $vehicle)
     {
+        $user = $request->user();
+        $canUpdateAnyVehicle = $user->hasAnyRole(['admin', 'supervisor']);
+        $isAssignedDriver = $user->driver && $vehicle->driver_id === $user->driver->id;
+
+        if (!$canUpdateAnyVehicle && !$isAssignedDriver) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not allowed to update this vehicle location.'),
+            ], 403);
+        }
+
         $validated = $request->validate([
-            'latitude'  => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
-            'speed'     => 'nullable|numeric|min:0',
-            'heading'   => 'nullable|numeric|between:0,360',
+            'latitude'   => 'required|numeric|between:-90,90',
+            'longitude'  => 'required|numeric|between:-180,180',
+            'speed'      => 'nullable|numeric|min:0',
+            'heading'    => 'nullable|numeric|between:0,360',
+            'fuel_level' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        $history = $vehicle->gps_data ?? [];
+        $history = is_array($vehicle->gps_data) ? $vehicle->gps_data : [];
         $history[] = [
-            'lat'       => $validated['latitude'],
-            'lng'       => $validated['longitude'],
-            'speed'     => $validated['speed'] ?? null,
-            'heading'   => $validated['heading'] ?? null,
+            'lat'         => $validated['latitude'],
+            'lng'         => $validated['longitude'],
+            'speed'       => $validated['speed'] ?? null,
+            'heading'     => $validated['heading'] ?? null,
+            'fuel_level'  => $validated['fuel_level'] ?? null,
             'recorded_at' => now()->toISOString(),
         ];
-        // Keep only the most recent 200 points so the column doesn't grow forever.
         $history = array_slice($history, -200);
 
-        $vehicle->update([
+        $vehicleData = [
             'current_lat' => $validated['latitude'],
             'current_lng' => $validated['longitude'],
             'gps_data'    => $history,
-        ]);
+        ];
 
-        return response()->json(['success' => true, 'vehicle' => $vehicle]);
+        if (array_key_exists('fuel_level', $validated)) {
+            $vehicleData['fuel_level'] = $validated['fuel_level'];
+        }
+
+        $vehicle->update($vehicleData);
+
+        return response()->json([
+            'success' => true,
+            'vehicle' => $vehicle->fresh()->load('driver'),
+        ]);
     }
 
-    /**
-     * Return the recorded GPS trail for a vehicle.
-     */
     public function getHistory(Request $request, Vehicle $vehicle)
     {
         $history = collect($vehicle->gps_data ?? []);
