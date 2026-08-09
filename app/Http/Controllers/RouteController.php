@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Route as WasteRoute;  // ← غيّر هون
+use App\Models\Route as WasteRoute;
 use App\Models\Container;
 use App\Models\Vehicle;
 use App\Models\Driver;
@@ -10,6 +10,7 @@ use App\Models\Dumpsite;
 use App\Exports\RoutesExport;
 use App\Services\GIS\RouteOptimizationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class RouteController extends Controller
@@ -18,7 +19,7 @@ class RouteController extends Controller
 
     public function index(Request $request)
     {
-        $query = WasteRoute::with(['vehicle', 'driver', 'dumpsite', 'containers']);  // ← غيّر
+        $query = WasteRoute::with(['vehicle', 'driver', 'dumpsite', 'containers']);
 
         if ($request->filled('search')) {
             $q = $request->search;
@@ -30,17 +31,17 @@ class RouteController extends Controller
         if ($request->filled('vehicle'))  $query->where('vehicle_id', $request->vehicle);
         if ($request->filled('driver'))   $query->where('driver_id', $request->driver);
 
-        $routes    = $query->orderByDesc('scheduled_at')->paginate(15)->withQueryString();
-        $vehicles  = Vehicle::available()->get();
-        $drivers   = Driver::available()->get();
-        $dumpsites = Dumpsite::active()->get();
-        $containers= Container::active()->get();
+        $routes     = $query->orderByDesc('scheduled_at')->paginate(15)->withQueryString();
+        $vehicles   = Vehicle::available()->get();
+        $drivers    = Driver::available()->get();
+        $dumpsites  = Dumpsite::active()->get();
+        $containers = Container::active()->get();
 
         $stats = [
-            'total'          => WasteRoute::count(),  // ← غيّر
-            'active'         => WasteRoute::where('status', 'active')->count(),  // ← غيّر
-            'today'          => WasteRoute::whereDate('scheduled_at', today())->count(),  // ← غيّر
-            'completed_today'=> WasteRoute::whereDate('completed_at', today())->where('status', 'completed')->count(),  // ← غيّر
+            'total'           => WasteRoute::count(),
+            'active'          => WasteRoute::where('status', 'active')->count(),
+            'today'           => WasteRoute::whereDate('scheduled_at', today())->count(),
+            'completed_today' => WasteRoute::whereDate('completed_at', today())->where('status', 'completed')->count(),
         ];
 
         return view('waste_management.routes', compact(
@@ -65,24 +66,26 @@ class RouteController extends Controller
             'notes'        => 'nullable|string',
         ]);
 
+        $this->validateAssignments($validated['vehicle_id'] ?? null, $validated['driver_id'] ?? null);
+
         $validated['code'] = 'RTE-' . strtoupper(uniqid());
 
-        $route = WasteRoute::create($validated);  // ← غيّر
-
-        if ($request->filled('containers')) {
-            $containerData = [];
-            foreach ($request->containers as $index => $containerId) {
-                $containerData[$containerId] = ['order' => $index + 1, 'status' => 'pending'];
-            }
-            $route->containers()->sync($containerData);
-        }
+        $route = DB::transaction(function () use ($request, $validated) {
+            $route = WasteRoute::create($validated);
+            $this->syncContainers($route, $request->input('containers', []));
+            return $route;
+        });
 
         return redirect()->route('routes.index')
             ->with('success', __('Route created successfully'));
     }
 
-    public function update(Request $request, WasteRoute $route)  // ← غيّر
+    public function update(Request $request, WasteRoute $route)
     {
+        if (in_array($route->status, ['completed', 'cancelled'], true)) {
+            return redirect()->route('routes.index')->with('error', __('Completed or cancelled routes cannot be edited.'));
+        }
+
         $validated = $request->validate([
             'name'         => 'required|string|max:255',
             'name_ar'      => 'nullable|string',
@@ -95,22 +98,29 @@ class RouteController extends Controller
             'notes'        => 'nullable|string',
         ]);
 
-        $route->update($validated);
-
-        if ($request->has('containers')) {
-            $containerData = [];
-            foreach ($request->containers ?? [] as $index => $containerId) {
-                $containerData[$containerId] = ['order' => $index + 1, 'status' => 'pending'];
-            }
-            $route->containers()->sync($containerData);
+        if ($validated['status'] === 'active' && $route->status !== 'active') {
+            $this->validateAssignments($validated['vehicle_id'] ?? null, $validated['driver_id'] ?? null, $route->id);
+        } elseif ($route->status !== 'active') {
+            $this->validateAssignments($validated['vehicle_id'] ?? null, $validated['driver_id'] ?? null, $route->id);
         }
+
+        DB::transaction(function () use ($request, $validated, $route) {
+            $route->update($validated);
+            if ($request->has('containers')) {
+                $this->syncContainers($route, $request->input('containers', []));
+            }
+        });
 
         return redirect()->route('routes.index')
             ->with('success', __('Route updated successfully'));
     }
 
-    public function destroy(WasteRoute $route)  // ← غيّر
+    public function destroy(WasteRoute $route)
     {
+        if ($route->status === 'active') {
+            return redirect()->route('routes.index')->with('error', __('Active routes cannot be deleted. Complete or cancel the route first.'));
+        }
+
         $route->delete();
         return redirect()->route('routes.index')
             ->with('success', __('Route deleted successfully'));
@@ -159,7 +169,7 @@ class RouteController extends Controller
         return response()->json($result);
     }
 
-    public function getGeojson(WasteRoute $route)  // ← غيّر
+    public function getGeojson(WasteRoute $route)
     {
         if ($route->geojson_path) {
             return response()->json($route->geojson_path);
@@ -188,21 +198,121 @@ class RouteController extends Controller
         return Excel::download(new RoutesExport, 'routes-' . date('Y-m-d') . '.xlsx');
     }
 
-    public function activate(WasteRoute $route)  // ← غيّر
+    public function activate(WasteRoute $route)
     {
-        $route->update(['status' => 'active', 'started_at' => now()]);
-        if ($route->vehicle_id) {
-            $route->vehicle->update(['status' => 'on_route']);
+        if (!in_array($route->status, ['planned'], true)) {
+            return response()->json(['success' => false, 'message' => __('Only planned routes can be activated.')], 422);
         }
+
+        try {
+            DB::transaction(function () use ($route) {
+                $this->validateAssignments($route->vehicle_id, $route->driver_id, $route->id);
+
+                $route->update(['status' => 'active', 'started_at' => now()]);
+
+                if ($route->vehicle_id) {
+                    $route->vehicle->update(['status' => 'on_route']);
+                }
+            });
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function complete(WasteRoute $route)
+    {
+        if ($route->status !== 'active') {
+            return response()->json(['success' => false, 'message' => __('Only active routes can be completed.')], 422);
+        }
+
+        DB::transaction(function () use ($route) {
+            $now = now();
+            $route->load('vehicle', 'driver', 'containers');
+
+            foreach ($route->containers as $container) {
+                $container->update([
+                    'fill_level'      => 0,
+                    'last_emptied_at' => $now,
+                    'last_checked_at' => $now,
+                ]);
+
+                if (!in_array($container->status, ['maintenance', 'inactive'], true)) {
+                    $container->update(['status' => 'active']);
+                }
+
+                $route->containers()->updateExistingPivot($container->id, [
+                    'status'       => 'collected',
+                    'collected_at' => $now,
+                ]);
+            }
+
+            $route->update([
+                'status'       => 'completed',
+                'completed_at' => $now,
+            ]);
+
+            if ($route->vehicle) {
+                $route->vehicle->update(['status' => 'active']);
+            }
+
+            if ($route->driver) {
+                $route->driver->increment('total_trips');
+            }
+        });
+
         return response()->json(['success' => true]);
     }
 
-    public function complete(WasteRoute $route)  // ← غيّر
+    private function validateAssignments(?int $vehicleId, ?int $driverId, ?int $ignoreRouteId = null): void
     {
-        $route->update(['status' => 'completed', 'completed_at' => now()]);
-        if ($route->vehicle_id) {
-            $route->vehicle->update(['status' => 'active']);
+        if ($vehicleId) {
+            $vehicle = Vehicle::findOrFail($vehicleId);
+
+            if ($vehicle->status !== 'active') {
+                abort(422, __('Selected vehicle is not active.'));
+            }
+
+            $query = WasteRoute::where('vehicle_id', $vehicleId)
+                ->whereIn('status', ['planned', 'active']);
+            if ($ignoreRouteId) $query->whereKeyNot($ignoreRouteId);
+
+            if ($query->exists()) {
+                abort(422, __('Selected vehicle is already assigned to another planned or active route.'));
+            }
         }
-        return response()->json(['success' => true]);
+
+        if ($driverId) {
+            $driver = Driver::findOrFail($driverId);
+
+            if ($driver->status !== 'active') {
+                abort(422, __('Selected driver is not active.'));
+            }
+
+            $query = WasteRoute::where('driver_id', $driverId)
+                ->whereIn('status', ['planned', 'active']);
+            if ($ignoreRouteId) $query->whereKeyNot($ignoreRouteId);
+
+            if ($query->exists()) {
+                abort(422, __('Selected driver is already assigned to another planned or active route.'));
+            }
+        }
+    }
+
+    private function syncContainers(WasteRoute $route, array $containerIds): void
+    {
+        $containerIds = array_values(array_unique(array_map('intval', $containerIds)));
+        $containerData = [];
+
+        foreach ($containerIds as $index => $containerId) {
+            $containerData[$containerId] = [
+                'order' => $index + 1,
+                'status' => 'pending',
+                'collected_at' => null,
+            ];
+        }
+
+        $route->containers()->sync($containerData);
     }
 }
