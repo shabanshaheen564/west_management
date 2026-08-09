@@ -19,15 +19,15 @@ class Vehicle extends Model
     ];
 
     protected $casts = [
-        'gps_data'         => 'array',
+        'gps_data' => 'array',
         'last_maintenance' => 'date',
         'next_maintenance' => 'date',
         'insurance_expiry' => 'date',
         'registration_expiry' => 'date',
-        'current_lat'      => 'float',
-        'current_lng'      => 'float',
-        'fuel_level'       => 'float',
-        'capacity'         => 'float',
+        'current_lat' => 'float',
+        'current_lng' => 'float',
+        'fuel_level' => 'float',
+        'capacity' => 'float',
     ];
 
     public function driver()
@@ -42,28 +42,28 @@ class Vehicle extends Model
 
     public function activeRoute()
     {
-        return $this->hasOne(Route::class)->whereIn('status', ['planned', 'active']);
+        return $this->hasOne(Route::class)->where('status', 'active');
     }
 
     public function getStatusColorAttribute(): string
     {
         return match($this->status) {
-            'active'      => 'success',
-            'on_route'    => 'primary',
+            'active' => 'success',
+            'on_route' => 'primary',
             'maintenance' => 'warning',
-            'inactive'    => 'danger',
-            default       => 'secondary',
+            'inactive' => 'danger',
+            default => 'secondary',
         };
     }
 
     public function getTypeIconAttribute(): string
     {
         return match($this->type) {
-            'compactor'   => 'fa-truck',
-            'tipper'      => 'fa-truck-loading',
-            'suction'     => 'fa-toilet',
-            'mini_truck'  => 'fa-shuttle-van',
-            default       => 'fa-truck',
+            'compactor' => 'fa-truck',
+            'tipper' => 'fa-truck-loading',
+            'suction' => 'fa-toilet',
+            'mini_truck' => 'fa-shuttle-van',
+            default => 'fa-truck',
         };
     }
 
@@ -76,13 +76,14 @@ class Vehicle extends Model
     {
         return $query->where('status', 'active')
             ->whereDoesntHave('routes', function ($q) {
-                $q->whereIn('status', ['planned', 'active']);
+                $q->where('status', 'active');
             });
     }
 
     public function toGeoJson(): array
     {
         if ($this->current_lat === null || $this->current_lng === null) return [];
+
         return [
             'type' => 'Feature',
             'geometry' => [
@@ -90,11 +91,11 @@ class Vehicle extends Model
                 'coordinates' => [$this->current_lng, $this->current_lat],
             ],
             'properties' => [
-                'id'           => $this->id,
+                'id' => $this->id,
                 'plate_number' => $this->plate_number,
-                'type'         => $this->type,
-                'status'       => $this->status,
-                'fuel_level'   => $this->fuel_level,
+                'type' => $this->type,
+                'status' => $this->status,
+                'fuel_level' => $this->fuel_level,
             ],
         ];
     }
