@@ -26,6 +26,28 @@ class Dumpsite extends Model
         'boundary_polygon'     => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (Dumpsite $dumpsite) {
+            $capacity = (float) $dumpsite->total_capacity;
+            $fill = max(0, (float) $dumpsite->current_fill);
+
+            if ($capacity <= 0) {
+                $dumpsite->fill_percentage = 0;
+                return;
+            }
+
+            $fill = min($fill, $capacity);
+            $dumpsite->current_fill = $fill;
+            $dumpsite->fill_percentage = round(($fill / $capacity) * 100, 2);
+
+            // Do not override maintenance/inactive states automatically.
+            if (!in_array($dumpsite->status, ['maintenance', 'inactive'], true)) {
+                $dumpsite->status = $dumpsite->fill_percentage >= 100 ? 'full' : 'active';
+            }
+        });
+    }
+
     public function routes() { return $this->hasMany(Route::class); }
 
     public function getStatusColorAttribute(): string
