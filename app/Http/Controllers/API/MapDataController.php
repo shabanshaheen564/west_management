@@ -61,16 +61,19 @@ class MapDataController extends Controller
             ->where('status', '!=', 'closed')
             ->get();
 
+        // This endpoint is public. Do not expose exact complaint coordinates,
+        // ticket numbers, or free-text subjects that may identify a complainant.
         $features = $complaints->map(fn ($c) => [
             'type' => 'Feature',
-            'geometry' => ['type' => 'Point', 'coordinates' => [$c->longitude, $c->latitude]],
+            'geometry' => [
+                'type' => 'Point',
+                // ~100 m spatial generalization instead of the exact location.
+                'coordinates' => [round((float) $c->longitude, 3), round((float) $c->latitude, 3)],
+            ],
             'properties' => [
-                'id'       => $c->id,
-                'ticket'   => $c->ticket_number,
-                'subject'  => $c->subject,
+                'category' => $c->category,
                 'priority' => $c->priority,
                 'status'   => $c->status,
-                'category' => $c->category,
             ],
         ])->values();
 
