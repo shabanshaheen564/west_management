@@ -139,6 +139,15 @@
                         </select></div>
                     <div class="col-md-3"><label class="form-label">{{ __('Capacity (tons)') }} *</label><input type="number" name="capacity" id="vf_capacity" class="form-control" step="0.1" required></div>
                     <div class="col-md-3"><label class="form-label">{{ __('Fuel Type') }}</label><input type="text" name="fuel_type" id="vf_fuel_type" class="form-control" value="diesel"></div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ __('Driver') }}</label>
+                        <select name="driver_id" id="vf_driver_id" class="form-select">
+                            <option value="">{{ __('Unassigned') }}</option>
+                            @foreach($drivers ?? [] as $d)
+                                <option value="{{ $d->id }}">{{ $d->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="col-md-4"><label class="form-label">{{ __('Status') }} *</label>
                         <select name="status" id="vf_status" class="form-select" required>
                             @foreach(['active','inactive','maintenance','on_route'] as $s)<option value="{{ $s }}">{{ ucfirst(str_replace('_',' ',$s)) }}</option>@endforeach
@@ -196,6 +205,7 @@ function resetVehicleForm() {
     });
     document.getElementById('vf_type').value   = 'truck';
     document.getElementById('vf_status').value = 'active';
+    document.getElementById('vf_driver_id').value = '';
 }
 
 function editVehicle(v) {
@@ -208,6 +218,7 @@ function editVehicle(v) {
     dates.forEach(f => { const el=document.getElementById('vf_'+f); if(el) el.value=(v[f]||'').slice(0,10); });
     document.getElementById('vf_type').value   = v.type;
     document.getElementById('vf_status').value = v.status;
+    document.getElementById('vf_driver_id').value = v.driver_id || '';
     new bootstrap.Modal(document.getElementById('vehicleModal')).show();
 }
 </script>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Imports\VehiclesImport;
 use Illuminate\Http\Request;
 use App\Models\Vehicle;
+use App\Models\Driver;
 use Maatwebsite\Excel\Facades\Excel;
 
 class VehicleController extends Controller
@@ -39,12 +40,15 @@ class VehicleController extends Controller
             'maintenance' => Vehicle::where('status', 'maintenance')->count(),
         ];
 
-        return view('waste_management.vehicles', compact('vehicles', 'stats'));
+        $drivers = Driver::active()->get();
+
+        return view('waste_management.vehicles', compact('vehicles', 'stats', 'drivers'));
     }
 
     public function create()
     {
-        return view('waste_management.vehicles');
+        $drivers = Driver::active()->get();
+        return view('waste_management.vehicles', compact('drivers'));
     }
 
     private function rules($vehicleId = null): array
@@ -59,6 +63,7 @@ class VehicleController extends Controller
             'type'                 => 'required|in:truck,mini_truck,compactor,tipper,suction',
             'capacity'             => 'required|numeric|min:0',
             'status'               => 'required|in:active,inactive,maintenance,on_route',
+            'driver_id'            => 'nullable|exists:drivers,id',
             'fuel_type'            => 'nullable|string',
             'fuel_level'           => 'nullable|numeric|min:0|max:100',
             'last_maintenance'     => 'nullable|date',
@@ -89,7 +94,8 @@ class VehicleController extends Controller
 
     public function edit(Vehicle $vehicle)
     {
-        return view('waste_management.vehicles', compact('vehicle'));
+        $drivers = Driver::active()->get();
+        return view('waste_management.vehicles', compact('vehicle', 'drivers'));
     }
 
     public function update(Request $request, Vehicle $vehicle)

@@ -432,12 +432,48 @@ function changeTile(val) {
 let analysisOpen = false, analysisMarker = null, analysisResultLayer = L.layerGroup().addTo(map);
 function toggleAnalysis() {
     analysisOpen = !analysisOpen;
+    if (analysisOpen) { routeMode = false; measureMode = false; }
     document.getElementById('analysisPanel').classList.toggle('open', analysisOpen);
     document.getElementById('btnAnalysis').classList.toggle('active', analysisOpen);
+    document.getElementById('btnRouteMode').classList.toggle('active', routeMode);
+    document.getElementById('btnMeasure').classList.toggle('active', measureMode);
     document.getElementById('sb-mode').textContent = analysisOpen ? '{{ __("Analysis Mode") }}' : '{{ __("View Mode") }}';
 }
 
 map.on('click', async e => {
+    if (routeMode) {
+        routeWaypoints.push(e.latlng);
+        L.circleMarker(e.latlng, {
+            radius: 7, color: '#7b3fa0', fillColor: '#7b3fa0', fillOpacity: .8
+        }).addTo(routeLayer);
+        if (routeWaypoints.length > 1) {
+            routeLayer.eachLayer(l => { if (l instanceof L.Polyline) routeLayer.removeLayer(l); });
+            L.polyline(routeWaypoints, { color: '#7b3fa0', weight: 3, dashArray: '6,4' }).addTo(routeLayer);
+        }
+        return;
+    }
+
+    if (measureMode) {
+        measurePoints.push(e.latlng);
+        L.circleMarker(e.latlng, {
+            radius: 5, color: '#1a2e1e', fillColor: '#1a2e1e', fillOpacity: .8
+        }).addTo(measureLayer);
+        if (measurePoints.length > 1) {
+            measureLayer.eachLayer(l => { if (l instanceof L.Polyline) measureLayer.removeLayer(l); });
+            L.polyline(measurePoints, { color: '#1a2e1e', weight: 2 }).addTo(measureLayer);
+            let totalKm = 0;
+            for (let i = 1; i < measurePoints.length; i++) {
+                totalKm += measurePoints[i - 1].distanceTo(measurePoints[i]) / 1000;
+            }
+            const last = measurePoints[measurePoints.length - 1];
+            L.popup({ closeButton: false })
+                .setLatLng(last)
+                .setContent(`${totalKm.toFixed(2)} km`)
+                .openOn(map);
+        }
+        return;
+    }
+
     if (!analysisOpen) return;
     const type   = document.getElementById('analysisType').value;
     const radius = document.getElementById('searchRadius').value;
@@ -506,6 +542,13 @@ map.on('click', async e => {
 let routeMode = false, routeWaypoints = [], routeLayer = L.layerGroup().addTo(map);
 function toggleRouteMode() {
     routeMode = !routeMode;
+    if (routeMode) {
+        measureMode = false;
+        analysisOpen = false;
+        document.getElementById('analysisPanel').classList.remove('open');
+        document.getElementById('btnAnalysis').classList.remove('active');
+        document.getElementById('btnMeasure').classList.remove('active');
+    }
     document.getElementById('btnRouteMode').classList.toggle('active', routeMode);
     document.getElementById('sb-mode').textContent = routeMode ? '{{ __("Route Mode — Click to add waypoints") }}' : '{{ __("View Mode") }}';
     if (!routeMode) { routeWaypoints = []; routeLayer.clearLayers(); }
@@ -515,6 +558,13 @@ function toggleRouteMode() {
 let measureMode = false, measurePoints = [], measureLayer = L.layerGroup().addTo(map);
 function toggleMeasure() {
     measureMode = !measureMode;
+    if (measureMode) {
+        routeMode = false;
+        analysisOpen = false;
+        document.getElementById('analysisPanel').classList.remove('open');
+        document.getElementById('btnAnalysis').classList.remove('active');
+        document.getElementById('btnRouteMode').classList.remove('active');
+    }
     document.getElementById('btnMeasure').classList.toggle('active', measureMode);
     document.getElementById('sb-mode').textContent = measureMode ? '{{ __("Measure Mode — Click points") }}' : '{{ __("View Mode") }}';
     if (!measureMode) { measurePoints = []; measureLayer.clearLayers(); }
@@ -542,8 +592,21 @@ function toggleFullscreen() {
 
 function toggleClusters() {
     const btn = document.getElementById('btnClusters');
-    btn.classList.toggle('active');
-    // Toggle cluster grouping
+    const clustersOn = !btn.classList.contains('active');
+    btn.classList.toggle('active', clustersOn);
+
+    // Swap the containers layer between a clustered group and a flat layer
+    // group, carrying its current markers over so toggling doesn't lose them.
+    const currentMarkers = layers.containers.getLayers();
+    const wasOnMap = map.hasLayer(layers.containers);
+    if (wasOnMap) map.removeLayer(layers.containers);
+
+    layers.containers = clustersOn
+        ? L.markerClusterGroup({ maxClusterRadius: 50 })
+        : L.layerGroup();
+    currentMarkers.forEach(m => layers.containers.addLayer(m));
+
+    if (wasOnMap) map.addLayer(layers.containers);
 }
 
 // ── GEOJSON UPLOAD ────────────────────────────────────────────────────────

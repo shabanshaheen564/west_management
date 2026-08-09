@@ -12,7 +12,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'plate_number', 'model', 'brand', 'year', 'type', 'capacity',
-        'status', 'current_lat', 'current_lng', 'fuel_level', 'fuel_type',
+        'status', 'driver_id', 'current_lat', 'current_lng', 'fuel_level', 'fuel_type',
         'last_maintenance', 'next_maintenance', 'insurance_number',
         'insurance_expiry', 'registration_number', 'registration_expiry',
         'gps_data', 'notes',
