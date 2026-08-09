@@ -1,71 +1,8 @@
-{{-- LOGIN VIEW: resources/views/auth/login.blade.php --}}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale()==='ar'?'rtl':'ltr' }}">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — Smart Waste Management</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family:'Inter',sans-serif; background:linear-gradient(135deg,#1a3a2a 0%,#0d2218 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; }
-        .login-card { background:#fff; border-radius:20px; padding:2.5rem; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.4); }
-        .login-logo { width:70px;height:70px;background:linear-gradient(135deg,#2d8a4e,#1f6438);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;margin:0 auto 1.5rem; }
-        .form-control { border-radius:10px;border:1.5px solid #e2e8f0;padding:.75rem 1rem;font-size:.9rem; }
-        .form-control:focus { border-color:#2d8a4e;box-shadow:0 0 0 3px rgba(45,138,78,.1); }
-        .btn-login { background:linear-gradient(135deg,#2d8a4e,#1f6438);border:none;border-radius:10px;padding:.75rem;font-size:.95rem;font-weight:600;width:100%; }
-        .input-group-text { background:#fff;border:1.5px solid #e2e8f0;border-right:none;border-radius:10px 0 0 10px; }
-        .form-control.has-prefix { border-left:none;border-radius:0 10px 10px 0; }
-        .lang-btn { font-size:.78rem;color:#888;text-decoration:none;padding:.25rem .6rem;border-radius:6px;transition:background .2s; }
-        .lang-btn:hover { background:#f0f4f8;color:#333; }
-    </style>
-</head>
-<body>
-<div class="login-card">
-    <div class="text-center mb-4">
-        <div class="login-logo"><i class="fas fa-recycle"></i></div>
-        <h4 style="font-weight:800;color:#1a2e1e;">Smart Waste Management</h4>
-        <p class="text-muted" style="font-size:.85rem;">نظام إدارة النفايات الذكي</p>
-    </div>
-
-    @if($errors->any())
-    <div class="alert alert-danger" style="border-radius:10px;font-size:.85rem;">
-        {{ $errors->first() }}
-    </div>
-    @endif
-
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
-        <div class="mb-3">
-            <label class="form-label fw-600" style="font-size:.85rem;">Email</label>
-            <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-envelope text-muted"></i></span>
-                <input type="email" name="email" class="form-control has-prefix" value="{{ old('email','admin@waste.local') }}" required autofocus>
-            </div>
-        </div>
-        <div class="mb-3">
-            <label class="form-label fw-600" style="font-size:.85rem;">Password</label>
-            <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-lock text-muted"></i></span>
-                <input type="password" name="password" class="form-control has-prefix" required>
-            </div>
-        </div>
-        <div class="d-flex align-items-center justify-content-between mb-4">
-            <div class="form-check"><input type="checkbox" name="remember" class="form-check-input" id="remember">
-                <label class="form-check-label" for="remember" style="font-size:.85rem;">Remember me</label></div>
-        </div>
-        <button type="submit" class="btn btn-login text-white"><i class="fas fa-sign-in-alt me-2"></i>Sign In</button>
-    </form>
-
-    <div class="text-center mt-4 d-flex justify-content-center gap-2">
-        <a href="{{ url('locale/en') }}" class="lang-btn">🇬🇧 English</a>
-        <a href="{{ url('locale/ar') }}" class="lang-btn">🇵🇸 العربية</a>
-    </div>
-
-    <div class="text-center mt-3" style="font-size:.75rem;color:#bbb;">
-        Demo: admin@waste.local / Admin@123456
-    </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ __('Sign In') }} — {{ config('app.name') }}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#102d3c;--blue:#176b87;--teal:#35b69b;--soft:#eef7f8;--line:#dce7eb;--muted:#72818c;font-family:{{ app()->getLocale()==='ar'?"'Cairo',sans-serif":"'Inter',sans-serif" }}}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f3f7f8;font-family:var(--font);color:#17212b;display:grid;place-items:center;overflow:hidden}.scene{position:fixed;inset:0;overflow:hidden;background:linear-gradient(135deg,#0e2634,#164c62)}.scene:before,.scene:after{content:'';position:absolute;border-radius:50%;filter:blur(2px)}.scene:before{width:55vw;height:55vw;right:-18vw;top:-22vw;background:radial-gradient(circle,rgba(53,182,155,.38),transparent 68%)}.scene:after{width:45vw;height:45vw;left:-18vw;bottom:-25vw;background:radial-gradient(circle,rgba(77,167,210,.3),transparent 68%)}.grid{position:absolute;inset:0;opacity:.13;background-image:linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px);background-size:42px 42px;transform:perspective(500px) rotateX(55deg) scale(1.4);transform-origin:center bottom}.wrap{position:relative;z-index:2;width:min(920px,94vw);display:grid;grid-template-columns:1fr 420px;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(3,20,30,.38)}.intro{padding:3rem;background:linear-gradient(160deg,#12384a,#0d2532);color:#fff;position:relative}.intro-mark{width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,var(--teal),var(--blue));display:grid;place-items:center;font-size:1.45rem;box-shadow:0 14px 30px rgba(0,0,0,.22);margin-bottom:2rem}.intro h1{font-size:2.1rem;font-weight:800;line-height:1.12;margin:0 0 1rem}.intro p{color:#b9ccd5;line-height:1.8;max-width:390px}.feature{display:flex;gap:.8rem;margin-top:1.3rem;align-items:center;color:#dce8ed;font-size:.82rem}.feature i{width:34px;height:34px;border-radius:10px;background:rgba(53,182,155,.13);color:#6be0c9;display:grid;place-items:center}.panel{padding:2.5rem 2.4rem}.panel-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem}.eyebrow{font-size:.72rem;font-weight:800;color:var(--blue);letter-spacing:.7px;text-transform:uppercase}.panel h2{font-size:1.55rem;font-weight:800;margin:.3rem 0}.sub{font-size:.78rem;color:var(--muted)}.lang a{font-size:.72rem;color:var(--muted);text-decoration:none;padding:.35rem .5rem;border-radius:7px}.lang a:hover{background:var(--soft);color:var(--blue)}.field{margin-bottom:1rem}.field label{font-size:.76rem;font-weight:700;margin-bottom:.4rem;display:block;color:#3e515d}.input{display:flex;border:1px solid var(--line);border-radius:10px;background:#fff;transition:.2s}.input:focus-within{border-color:#78b9c8;box-shadow:0 0 0 3px rgba(23,107,135,.08)}.input i{width:42px;display:grid;place-items:center;color:#8aa0aa;font-size:.82rem}.input input{border:0;outline:0;flex:1;padding:.72rem .65rem;font-family:inherit;font-size:.82rem;min-width:0}.submit{width:100%;border:0;border-radius:10px;padding:.78rem;background:linear-gradient(135deg,var(--blue),#0f5872);color:#fff;font:700 .84rem var(--font);box-shadow:0 8px 18px rgba(23,107,135,.2);transition:.2s}.submit:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(23,107,135,.25)}.remember{font-size:.75rem;color:#667883}.demo{margin-top:1.2rem;padding:.7rem;border-radius:9px;background:#f7fafb;border:1px dashed #d9e6ea;color:#8a99a2;font-size:.67rem;text-align:center}.error{background:#fff1f2;border:1px solid #ffd4d8;color:#a42f39;border-radius:9px;padding:.65rem .75rem;font-size:.75rem;margin-bottom:1rem}@media(max-width:760px){body{overflow:auto;padding:1rem}.wrap{grid-template-columns:1fr}.intro{display:none}.panel{padding:2rem 1.4rem}}
+</style></head><body><div class="scene"><div class="grid"></div></div><div class="wrap"><section class="intro"><div class="intro-mark"><i class="fa-solid fa-route"></i></div><h1>{{ __('Waste Operations') }}</h1><p>{{ __('GIS-powered waste collection management for containers, vehicles, routes, complaints and disposal operations.') }}</p><div class="feature"><i class="fa-solid fa-map-location-dot"></i><span>{{ __('Live GIS operational map') }}</span></div><div class="feature"><i class="fa-solid fa-truck-fast"></i><span>{{ __('Collection fleet and route control') }}</span></div><div class="feature"><i class="fa-solid fa-chart-line"></i><span>{{ __('Clear operational indicators and reports') }}</span></div></section><section class="panel"><div class="panel-top"><div><div class="eyebrow">{{ __('Operations Platform') }}</div><h2>{{ __('Welcome back') }}</h2><div class="sub">{{ __('Sign in to continue to your workspace.') }}</div></div><div class="lang"><a href="{{ url('locale/ar') }}">🇵🇸 AR</a><a href="{{ url('locale/en') }}">🇬🇧 EN</a></div></div>@if($errors->any())<div class="error"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ $errors->first() }}</div>@endif<form method="POST" action="{{ route('login') }}">@csrf<div class="field"><label>{{ __('Email') }}</label><div class="input"><i class="fa-regular fa-envelope"></i><input type="email" name="email" value="{{ old('email','admin@waste.local') }}" required autofocus autocomplete="username"></div></div><div class="field"><label>{{ __('Password') }}</label><div class="input"><i class="fa-solid fa-lock"></i><input type="password" name="password" required autocomplete="current-password"></div></div><div class="d-flex justify-content-between align-items-center mb-3"><label class="remember d-flex align-items-center gap-2"><input type="checkbox" name="remember"> {{ __('Remember me') }}</label></div><button class="submit" type="submit"><i class="fa-solid fa-arrow-right-to-bracket me-2"></i>{{ __('Sign In') }}</button></form><div class="demo">{{ __('Demo account') }}: admin@waste.local · Admin@123456</div></section></div></body></html>
