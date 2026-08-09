@@ -42,7 +42,7 @@ class Vehicle extends Model
 
     public function activeRoute()
     {
-        return $this->hasOne(Route::class)->where('status', 'active');
+        return $this->hasOne(Route::class)->whereIn('status', ['planned', 'active']);
     }
 
     public function getStatusColorAttribute(): string
@@ -74,12 +74,15 @@ class Vehicle extends Model
 
     public function scopeAvailable($query)
     {
-        return $query->whereIn('status', ['active']);
+        return $query->where('status', 'active')
+            ->whereDoesntHave('routes', function ($q) {
+                $q->whereIn('status', ['planned', 'active']);
+            });
     }
 
     public function toGeoJson(): array
     {
-        if (!$this->current_lat || !$this->current_lng) return [];
+        if ($this->current_lat === null || $this->current_lng === null) return [];
         return [
             'type' => 'Feature',
             'geometry' => [
