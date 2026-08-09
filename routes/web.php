@@ -38,6 +38,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
 
+    // Notifications
+    Route::post('/notifications/read-all', [DashboardController::class, 'markAllNotificationsRead'])->name('notifications.read-all');
+
+    // Profile — minimal read-only page for the logged-in user
+    Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
+
     // ===== Containers =====
     Route::middleware('permission:view containers')->group(function () {
         Route::get('containers', [ContainerController::class, 'index'])->name('containers.index');
@@ -161,8 +167,12 @@ Route::middleware(['auth'])->group(function () {
 
     // ===== Users / Roles / Settings (admin area) =====
     Route::middleware('role:admin')->group(function () {
-        Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class);
+        // UserController/RoleController only implement index/store/update/destroy
+        // (create/show/edit are handled via modals in the index view), so the
+        // resource routes are restricted to match — otherwise /users/create,
+        // /users/{user}, and /users/{user}/edit would 500 with "method not found".
+        Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     });

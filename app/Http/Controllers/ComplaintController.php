@@ -38,7 +38,10 @@ class ComplaintController extends Controller
 
     public function create()
     {
-        return view('waste_management.complaints');
+        // Public, unauthenticated complaint form — intentionally a standalone
+        // view (not the admin "waste_management.complaints" dashboard, which
+        // requires $complaints/$staff/$stats and the "view complaints" permission).
+        return view('waste_management.complaint_public');
     }
 
     public function store(Request $request)
@@ -53,11 +56,21 @@ class ComplaintController extends Controller
             'latitude'          => 'nullable|numeric',
             'longitude'         => 'nullable|numeric',
             'address'           => 'nullable|string',
-            'priority'          => 'required|in:low,medium,high,urgent',
+            // Priority is only editable from the internal admin form; the public
+            // form doesn't expose it, so it's optional and defaults to "medium".
+            'priority'          => 'nullable|in:low,medium,high,urgent',
         ]);
+        $validated['priority'] = $validated['priority'] ?? 'medium';
         if (auth()->check()) $validated['user_id'] = auth()->id();
         Complaint::create($validated);
-        return redirect()->route('complaints.index')->with('success', __('Complaint submitted successfully'));
+
+        // Authenticated staff submitting from the internal dashboard land back
+        // on the complaints list; anonymous public submitters (who can't access
+        // that protected route) land back on the public form with a success message.
+        if (auth()->check()) {
+            return redirect()->route('complaints.index')->with('success', __('Complaint submitted successfully'));
+        }
+        return redirect()->route('complaints.public')->with('success', __('Complaint submitted successfully'));
     }
 
     public function update(Request $request, Complaint $complaint)

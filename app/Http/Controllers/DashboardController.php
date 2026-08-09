@@ -105,6 +105,17 @@ class DashboardController extends Controller
         ));
     }
 
+    public function markAllNotificationsRead(Request $request)
+    {
+        $request->user()->unreadNotifications->markAsRead();
+        return response()->json(['success' => true]);
+    }
+
+    public function profile(Request $request)
+    {
+        return view('waste_management.profile', ['user' => $request->user()]);
+    }
+
     public function getChartData(Request $request)
     {
         $type = $request->get('type', 'weekly_collections');

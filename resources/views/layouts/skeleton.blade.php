@@ -751,7 +751,7 @@
                 <li>
                     <hr class="dropdown-divider my-1">
                 </li>
-                <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>{{ __('Profile') }}</a></li>
+                <li><a class="dropdown-item" href="{{ route('profile') }}"><i class="fas fa-user me-2"></i>{{ __('Profile') }}</a></li>
                 <li>
                     <form action="{{ route('logout') }}" method="POST">
                         @csrf
