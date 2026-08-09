@@ -26,7 +26,6 @@ class ContainerController extends Controller
         if ($request->filled('zone'))    $query->where('zone', $request->zone);
 
         $containers = $query->orderByDesc('fill_level')->paginate(15)->withQueryString();
-
         $zones = Container::distinct()->pluck('zone')->filter()->sort()->values();
 
         $stats = [
@@ -59,6 +58,7 @@ class ContainerController extends Controller
         ]);
 
         $container = Container::create($validated);
+        $this->synchronizeStatus($container);
 
         return redirect()->route('containers.index')
             ->with('success', __('Container created successfully'));
@@ -100,6 +100,7 @@ class ContainerController extends Controller
         ]);
 
         $container->update($validated);
+        $this->synchronizeStatus($container);
 
         return redirect()->route('containers.index')
             ->with('success', __('Container updated successfully'));
@@ -138,8 +139,7 @@ class ContainerController extends Controller
         if ($request->filled('type'))    $query->where('type', $request->type);
         if ($request->filled('min_fill')) $query->where('fill_level', '>=', $request->min_fill);
 
-        $containers = $query->get();
-        return response()->json(GISHelper::toGeoJsonFeatureCollection($containers));
+        return response()->json(GISHelper::toGeoJsonFeatureCollection($query->get()));
     }
 
     public function heatmap()
@@ -150,15 +150,15 @@ class ContainerController extends Controller
 
     public function updateFillLevel(Request $request, Container $container)
     {
-        $request->validate(['fill_level' => 'required|numeric|min:0|max:100']);
+        $validated = $request->validate(['fill_level' => 'required|numeric|min:0|max:100']);
 
-        $container->update([
-            'fill_level'      => $request->fill_level,
-            'last_checked_at' => now(),
-            'status'          => $request->fill_level >= 100 ? 'full' : $container->status,
-        ]);
+        $container->fill_level = (float) $validated['fill_level'];
+        $container->last_checked_at = now();
+        $container->save();
 
-        return response()->json(['success' => true, 'container' => $container]);
+        $this->synchronizeStatus($container);
+
+        return response()->json(['success' => true, 'container' => $container->fresh()]);
     }
 
     public function markEmptied(Container $container)
@@ -166,9 +166,26 @@ class ContainerController extends Controller
         $container->update([
             'fill_level'      => 0,
             'last_emptied_at' => now(),
-            'status'          => 'active',
+            'last_checked_at' => now(),
         ]);
 
-        return response()->json(['success' => true]);
+        // Keep maintenance/inactive containers in their operational state;
+        // otherwise an emptied container becomes active automatically.
+        if (!in_array($container->status, ['maintenance', 'inactive'], true)) {
+            $container->update(['status' => 'active']);
+        }
+
+        return response()->json(['success' => true, 'container' => $container->fresh()]);
+    }
+
+    private function synchronizeStatus(Container $container): void
+    {
+        if (in_array($container->status, ['maintenance', 'inactive'], true)) {
+            return;
+        }
+
+        $container->updateQuietly([
+            'status' => $container->fill_level >= 100 ? 'full' : 'active',
+        ]);
     }
 }
